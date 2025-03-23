@@ -1,8 +1,6 @@
 import json
 from json import JSONDecodeError
 
-from httpx._status_codes import codes
-
 from httpx import Response as _Response
 from rich.console import Console, ConsoleOptions, RenderResult
 
@@ -17,6 +15,15 @@ class Response(_Response):
     This class uses the rich library's capabilities to format HTTP response objects visually
     when output to a console supporting rich text formatting.
     """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.body = None
+        if hasattr(self, "_content"):
+            try:
+                self.body = self.json()
+            except JSONDecodeError:
+                self.body = self.text
 
     def __rich_console__(self, console: Console, options: ConsoleOptions) -> RenderResult:
         """
@@ -36,3 +43,10 @@ class Response(_Response):
         if self._request:
             yield from render_request(self.request, width=width)
         yield from render_response(self, width=width)
+
+    def __repr__(self):
+        formatted_response = json.dumps(self.body, indent=3, ensure_ascii=False).encode('utf8')
+        r = f'→ {self.request.method} {self.request.url}\n'
+        r += f'← code: {self.status_code}'
+        r += f'\n← body: {formatted_response.decode()}' if self.body else ''
+        return r
